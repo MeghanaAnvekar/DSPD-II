@@ -116,6 +116,7 @@ int main()
           init_MRU(&cache3);
           for(i=0;i<n;++i)
           {
+            printf("\nQuery %d ......",i+1);
             scanf("%d",&q);
             add(&query_list,q);
             MRU_update(&cache3,pop(&query_list));
@@ -238,90 +239,92 @@ LFU_node* LFU_search(LFU_node* list,item_type d)
 
 void LFU_update(LFU *ptr, item_type d)
 {
-  LFU_node *catch,*pre,*curr,*hold;
-  int found = 0;//if found is 1 ctr is incremented and the node is suitably placed
+  LFU_node *catch,*pre,*curr,*hold,*nptr;
+  int found = 0;//flag to mark if reshuffle is required
 
-  if(ptr->size > 1)
+  if(ptr->size == 0)
   {
-    //if 1st element matches with data it is moved to the end.
-    if((ptr->list)->data == d)
+    ptr->list = make_LFU_node(d);
+    ptr->size += 1;
+  }
+  else
+  {  //when cache is not empty
+    if(ptr->list->data == d)
     {
       hold = ptr->list;
-      ptr->list = hold->next;
-      curr = ptr->list;
-      found = 1;
-    }
-    else
-    {
-      catch = LFU_search(ptr->list,d);
+      curr = hold->next;
+      hold->ctr += 1;
 
-      if(catch != NULL )
-      {
-        hold = catch->next;
-        hold->ctr += 1;
-        //if required node is not the last node
-        if(hold->next !=NULL)
+      //when there are more nodes, reshuffle of positions may be required
+      if(curr != NULL)
+      {  if(curr->ctr < hold->ctr)
         {
-          catch->next = hold->next;
-          pre  = catch;
-          //the search for appropriate place in the list begins from curr
-          curr = catch->next;
+          ptr->list = curr;
+          hold->next = NULL;
           found = 1;
         }
       }
+    }
+    else
+    {
+      // search for match in nodes other than 1st node
+      catch = LFU_search(ptr->list,d);
+
+      if(catch != NULL)
+      {
+        hold = catch->next;
+        hold->ctr += 1;
+
+        //if the match is not the last node
+        if(hold->next != NULL)
+        {
+          curr = hold->next;
+          //condition for reshuffle =>found is set to 1
+          if(curr->ctr < hold->ctr)
+          {
+            catch->next = curr;
+            hold->next = NULL;
+            found = 1;
+          }
+        }
+
+      }
       else
       {
-        //replace or add
+        //when cache-miss occured and cache is full => replace the node at the beginning
+
         if(ptr->size == SIZE)
         {
           hold = ptr->list;
-          ptr->list = hold->next;
+          nptr = make_LFU_node(d);
+          nptr->next = hold->next;
+          ptr->list = nptr;
           print(hold->data);
           free(hold);
-          ptr->size -=1;
         }
-        LFU_node* nptr = make_LFU_node(d);
-        nptr->next = ptr->list;
-        ptr->list = nptr;
-        ptr->size += 1;
-      }
-    }
-    if(found)
-    {
-
-      while (curr != NULL && curr->ctr < hold->ctr)
-      {
-        /* code */
-        pre = curr;
-        curr = curr->next;
+        else
+        {
+          //add the data in the cache when it is empty or partially filled
+          nptr = make_LFU_node(d);
+          nptr->next = ptr->list;
+          ptr->list = nptr;
+          ptr->size += 1;
+        }
 
       }
-
-      hold->next = curr;
-      pre->next = hold;
-
     }
-
-
   }
-  else
+  //insert data at the proper place in the list
+  if(found)
   {
-    if(ptr->size == 1)
+    //loop will be executed at least once
+    while(curr != NULL && curr->ctr < hold->ctr)
     {
-      if((ptr->list)->data == d )
-      {
-        (ptr->list)->ctr += 1;
-        found =1;
-      }
+      pre = curr;
+      curr = curr->next;
     }
-    //when the cache is empty or a cache-miss occured with only 1 node in the list
-    if(!found)
-    {
-      LFU_node *nptr = make_LFU_node(d);
-      nptr->next = ptr->list;
-      ptr->list = nptr;
-      ptr->size +=1;
-    }
+    hold->next = curr;
+    pre->next = hold;
   }
 
 }
@@ -338,41 +341,48 @@ void MRU_update(MRU *ptr, item_type d)
   }
   else
   {
-    if((ptr->list)->data != d)
+    if((ptr->list)->data == d)
     {
-      //look for match in nodes other than first node
-      catch = node_search(ptr->list,d);
-
-      if(catch == NULL && ptr->size == SIZE)
-      {
-        hold = ptr->list;
-        node* nptr = make_node(d);
-        nptr->next = hold->next;
-
-        ptr->list = nptr;
-        print(hold->data);
-        free(hold);
-      }
+      ;//do nothing as 1st node is most recently accessed
     }
     else
     {
-      if(catch == NULL)
+      if(ptr->size >= 1)
       {
-        //add new node
-        node *nptr = make_node(d);
-        nptr->next = ptr->list;
-        ptr->list =  nptr;
-        ptr->size += 1;
+        //look for match in nodes other than first node
+        catch = node_search(ptr->list,d);
+
+        if(catch == NULL )
+        {
+          node* nptr = make_node(d);
+          if(ptr->size == SIZE)
+          {
+            hold = ptr->list;
+            nptr->next = hold->next;
+            ptr->list = nptr;
+            print(hold->data);
+            free(hold);
+          }
+          else
+          {
+            //add a new node
+            nptr->next = ptr->list;
+            ptr->list = nptr;
+            ptr->size += 1;
+          }
+        }
+        else
+        {
+          //bring the most recently accessed node to front
+          hold = catch->next;
+          catch->next = hold->next;
+          hold->next = ptr->list;
+          ptr->list = hold;
+        }
       }
-      else
-      {
-        //bring the most recently accessed node to front
-        hold = catch->next;
-        catch->next = hold->next;
-        hold->next = ptr->list;
-        ptr->list = hold;
-      }
+
     }
+
   }
 }
 
