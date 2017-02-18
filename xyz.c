@@ -12,7 +12,7 @@ typedef struct node_tag
 
 typedef struct LFU_tag
 {
-  item_type data;
+  item_type address;
   int ctr;
   struct LFU_tag* next;
 }LFU_node;
@@ -47,9 +47,9 @@ node* make_node(item_type d);
 LFU_node* make_LFU_node(item_type d);
 node* node_search(node* list,item_type d);
 LFU_node* LFU_search(LFU_node* list,item_type d);
-void LFU_update(LFU *ptr, item_type d);
-void MRU_update(MRU *ptr, item_type d);
-void LRU_update(LRU *ptr, item_type d);
+void LFU_update(node* cache,LFU *ptr, item_type d);
+void MRU_update(node* cache,MRU *ptr, item_type d);
+void LRU_update(node* cache,LRU *ptr, item_type d);
 int pop(query *ptr);
 void add(query *ptr, item_type d);
 void LRU_cache_contents(LRU *ptr);
@@ -62,15 +62,16 @@ int main()
   int i,n,choice,q;
   query query_list;
   init_query(&query_list);
-  LRU cache1;LFU cache2;MRU cache3;
+  LRU tag1;LFU tag2;MRU tag3;
+  node* cache;
 
-  init_LRU(&cache1);
-  init_LFU(&cache2);
-  init_MRU(&cache3);
+  init_LRU(&tag1);
+  init_LFU(&tag2);
+  init_MRU(&tag3);
 
 
   printf("**********************************************************************\n");
-  printf("......................CACHE MANAGEMENT SYSTEM.........................");
+  printf("......................CACHE MANAGEMENT SYSTEM.........................\n");
   printf("**********************************************************************\n");
 
   printf("\n\n\nMENU :\n");
@@ -86,41 +87,41 @@ int main()
   switch(choice)
   {
     case 1:
-            init_LRU(&cache1);
+            init_LRU(&tag1);
             for(i=0;i<n;++i)
             {
               printf("\nQuery %d ......",i+1);
               scanf("%d",&q);
-              add(&query_list,q);
+              //add(&query_list,q);
             //  query_contents(&query_list);
-              LRU_update(&cache1,pop(&query_list));
-              LRU_cache_contents(&cache1);
+              LRU_update(&tag1,q);
+              LRU_cache_contents(&tag1);
             }
             break;
 
   case 2:
 
-          init_LFU(&cache2);
+          init_LFU(&tag2);
           for(i=0;i<n;++i)
           {
             printf("\nQuery %d ......",i+1);
             scanf("%d",&q);
-            add(&query_list,q);
-            LFU_update(&cache2,pop(&query_list));
-            LFU_cache_contents(&cache2);
+            //add(&query_list,q);
+            LFU_update(&tag2,q);
+            LFU_cache_contents(&tag2);
           }
           break;
 
   case 3:
 
-          init_MRU(&cache3);
+          init_MRU(&tag3);
           for(i=0;i<n;++i)
           {
             printf("\nQuery %d ......",i+1);
             scanf("%d",&q);
-            add(&query_list,q);
-            MRU_update(&cache3,pop(&query_list));
-            MRU_cache_contents(&cache3);
+            //add(&query_list,q);
+            MRU_update(&tag3,q);
+            MRU_cache_contents(&tag3);
           }
           break;
   default : printf("\nINVALID CHOICE !!!. Enter choice(1-3) only\n");
@@ -237,7 +238,7 @@ LFU_node* LFU_search(LFU_node* list,item_type d)
   return NULL;
 }
 
-void LFU_update(LFU *ptr, item_type d)
+void LFU_update(node* cache,LFU *ptr, item_type d)
 {
   LFU_node *catch,*pre,*curr,*hold,*nptr;
   int found = 0;//flag to mark if reshuffle is required
@@ -329,7 +330,7 @@ void LFU_update(LFU *ptr, item_type d)
 
 }
 
-void MRU_update(MRU *ptr, item_type d)
+void MRU_update(node* cache,MRU *ptr, item_type d)
 {
   node *hold,*catch;
 
@@ -386,7 +387,7 @@ void MRU_update(MRU *ptr, item_type d)
   }
 }
 
-void LRU_update(LRU *ptr, item_type d)
+void LRU_update(node* cache,LRU *ptr, item_type d)
 {
   node *catch,*hold;
   if(ptr->size == 0)
@@ -417,10 +418,10 @@ void LRU_update(LRU *ptr, item_type d)
         hold = catch->next;
         if(hold->next != NULL)
         {
-        	catch->next = hold->next;
-        	hold->next  = NULL;
-        	(ptr->rear)->next = hold;
-        	ptr->rear = hold;
+          catch->next = hold->next;
+          hold->next  = NULL;
+          (ptr->rear)->next = hold;
+          ptr->rear = hold;
         }
       }
       else
